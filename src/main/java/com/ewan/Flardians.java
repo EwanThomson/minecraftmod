@@ -26,12 +26,7 @@ import java.util.Random;
 
 @Plugin(id = "flardians", name = "Flardians", version = "0.5", description = "BUY FLARD HERE")
 public class Flardians {
-
-    // Here are the items that we will sell and buy
-    private static final ItemType[] SELL_TYPES = new ItemType[]{ItemTypes.SLIME_BALL, ItemTypes.HARDENED_CLAY,
-            ItemTypes.BLAZE_ROD, ItemTypes.APPLE, ItemTypes.GHAST_TEAR, ItemTypes.COBBLESTONE, ItemTypes.STICK,
-            ItemTypes.EMERALD,};
-    private static final List<ItemType> BUYING_TYPES = ImmutableList.of(ItemTypes.ACACIA_DOOR, ItemTypes.LEAVES2,
+    private static final List<ItemType> ITEM_TYPES = ImmutableList.of(ItemTypes.ACACIA_DOOR, ItemTypes.LEAVES2,
             ItemTypes.BOOKSHELF, ItemTypes.COAL, ItemTypes.COBBLESTONE, ItemTypes.ANVIL, ItemTypes.IRON_ORE,
             ItemTypes.APPLE, ItemTypes.WHEAT_SEEDS, ItemTypes.DIRT);
 
@@ -39,9 +34,9 @@ public class Flardians {
     private static final Text FLARDARIAN = Text.of(TextColors.DARK_AQUA, TextStyles.BOLD, TextStyles.ITALIC, "Flardarian");
 
     // This field refers to the display name of our ItemStack
-    private static final Text ITEM_DISPLAY = Text.of(TextColors.YELLOW, TextStyles.BOLD, "[",
-            TextColors.GREEN, TextStyles.ITALIC, "FLARD",
-            TextStyles.RESET, TextColors.YELLOW, TextStyles.BOLD, "]");
+    private static final List<Text> DISPLAY_NAMES = ImmutableList.of(
+            Text.of(TextColors.GREEN, TextStyles.ITALIC, "Book One"),
+            Text.of(TextColors.GREEN, TextStyles.ITALIC, "Book Two"));
 
     // Here we define the Lore we will be using for out items.
     private static final Text LORE_FIRST = Text.of(TextColors.BLUE, TextStyles.ITALIC, "This is indeed a glorious day!");
@@ -79,50 +74,30 @@ public class Flardians {
     }
 
     private TradeOfferData generateTradeOffer() {
-        final int rand = RANDOM.nextInt(7);
-        final int itemRand = RANDOM.nextInt(BUYING_TYPES.size());
-        //Again, we use more DataManipulators here
-
-        final DisplayNameData itemName = Sponge.getDataManager().getManipulatorBuilder(DisplayNameData.class).get().create();
-        itemName.set(Keys.DISPLAY_NAME, ITEM_DISPLAY);
-
-        // Set up the lore data.
-        final LoreData loreData = Sponge.getDataManager().getManipulatorBuilder(LoreData.class).get().create();
-        final ListValue<Text> lore = loreData.lore();
-        lore.addAll(LORE);
-        loreData.set(lore);
-
-        // Here we create our ItemStacks. Normally they consists of an item
-        // type, a specific quantity, and item data. Once we have our complete item we call build.
-
-        /*
-        // Create the selling item
-        final ItemStack selling = ItemStack.builder()
-                .itemType(SELL_TYPES[rand])
-                .itemData(itemName)
-                .itemData(loreData)
-                .quantity(1)
-                .build();
-
-        // Create the buying item
-        final ItemStack buying = ItemStack.builder()
-                .itemType(BUYING_TYPES.get(itemRand))
-                .quantity(1)
-                .build();
-         */
-
         final TradeOfferData tradeOfferData = Sponge.getDataManager().getManipulatorBuilder(TradeOfferData.class).get().create();
         ListValue<TradeOffer> tradeOffers = tradeOfferData.tradeOffers();
-        tradeOffers.add(TradeOffer.builder()
-                .firstBuyingItem(ItemStack.of(ItemTypes.APPLE))
-                .maxUses(10000)
-                .sellingItem(ItemStack.of(ItemTypes.APPLE, 2))
-                .build());
-        tradeOffers.add(TradeOffer.builder()
-                .firstBuyingItem(ItemStack.of(ItemTypes.DIRT))
-                .maxUses(10000)
-                .sellingItem(ItemStack.of(ItemTypes.DIRT, 2))
-                .build());
+        for (int i = 0; i < 2; i++) {
+            final DisplayNameData itemName = Sponge.getDataManager().getManipulatorBuilder(DisplayNameData.class).get().create();
+            itemName.set(Keys.DISPLAY_NAME, DISPLAY_NAMES.get(i));
+
+            final LoreData loreData = Sponge.getDataManager().getManipulatorBuilder(LoreData.class).get().create();
+            final ListValue<Text> lore = loreData.lore();
+            lore.add(LORE.get(i));
+            loreData.set(lore);
+
+            final ItemStack selling = ItemStack.builder()
+                    .itemType(ITEM_TYPES.get(i+1))
+                    .itemData(itemName)
+                    .itemData(loreData)
+                    .quantity(1)
+                    .build();
+
+            tradeOffers.add(TradeOffer.builder()
+                    .firstBuyingItem(ItemStack.of(ITEM_TYPES.get(i)))
+                    .maxUses(10000)
+                    .sellingItem(selling)
+                    .build());
+        }
         tradeOfferData.set(tradeOffers);
         return tradeOfferData;
     }
