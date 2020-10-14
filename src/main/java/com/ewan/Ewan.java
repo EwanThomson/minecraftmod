@@ -33,9 +33,10 @@ public class Ewan {
             .executor(new HelloWorldCommand())
             .build();
     CommandSpec addCommand = CommandSpec.builder()
-            .description(Text.of("adds 2 numbers"))
+            .description(Text.of("adds 2 numbers and one oporator"))
             .arguments(
                     GenericArguments.integer(Text.of("num1")),
+                    GenericArguments.string(Text.of("operator")),
                     GenericArguments.integer(Text.of("num2"))
             )
             .executor(new AddCommand())
@@ -82,8 +83,23 @@ class AddCommand implements CommandExecutor {
     @Override
     public CommandResult execute(CommandSource src, CommandContext args) throws CommandException {
         int num1 = args.<Integer>getOne("num1").get();
+        String operator = args.<String>getOne("operator").get();
         int num2 = args.<Integer>getOne("num2").get();
-        src.sendMessage(Text.of(TextColors.GREEN, num1, " + ", num2, " = ", TextColors.YELLOW, num1 + num2));
+        int ans;
+        if (operator.equals("-")) {
+            ans = num1 - num2;
+        } else if (operator.equals("+")) {
+            ans = num1 + num2;
+        } else if (operator.equals("/")) {
+            ans = num1 / num2;
+        } else if (operator.equals("*")) {
+            ans = num1 * num2;
+        } else {
+            ans = num1 + num2;
+        }
+
+
+        src.sendMessage(Text.of(TextColors.GREEN, num1, operator, num2, " = ", TextColors.YELLOW, ans));
         return CommandResult.success();
     }
 }
