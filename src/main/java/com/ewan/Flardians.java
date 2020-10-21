@@ -1,63 +1,65 @@
 package com.ewan;
 
-import com.google.common.collect.ImmutableList;
+import com.google.inject.Inject;
 import org.spongepowered.api.Sponge;
+import org.spongepowered.api.command.CommandException;
+import org.spongepowered.api.command.CommandResult;
+import org.spongepowered.api.command.CommandSource;
+import org.spongepowered.api.command.args.CommandContext;
+import org.spongepowered.api.command.args.GenericArguments;
+import org.spongepowered.api.command.spec.CommandExecutor;
+import org.spongepowered.api.command.spec.CommandSpec;
 import org.spongepowered.api.data.key.Keys;
-import org.spongepowered.api.data.manipulator.mutable.DisplayNameData;
 import org.spongepowered.api.data.manipulator.mutable.entity.TradeOfferData;
-import org.spongepowered.api.data.manipulator.mutable.item.LoreData;
 import org.spongepowered.api.data.type.Careers;
 import org.spongepowered.api.data.value.mutable.ListValue;
 import org.spongepowered.api.entity.Entity;
 import org.spongepowered.api.entity.EntityTypes;
 import org.spongepowered.api.event.Listener;
 import org.spongepowered.api.event.entity.SpawnEntityEvent;
+import org.spongepowered.api.event.game.state.GameStartingServerEvent;
 import org.spongepowered.api.item.ItemType;
 import org.spongepowered.api.item.ItemTypes;
 import org.spongepowered.api.item.inventory.ItemStack;
 import org.spongepowered.api.item.merchant.TradeOffer;
 import org.spongepowered.api.plugin.Plugin;
+import org.spongepowered.api.plugin.PluginContainer;
 import org.spongepowered.api.text.Text;
 import org.spongepowered.api.text.format.TextColors;
 import org.spongepowered.api.text.format.TextStyles;
 
-import java.util.List;
-import java.util.Random;
+import java.lang.reflect.Field;
+import java.util.HashMap;
 
-@Plugin(id = "flardians", name = "Flardians", version = "0.5", description = "BUY FLARD HERE")
+@Plugin(id = "flardians", name = "Flardians", version = "0.1", description = "BUY FLARD HERE")
 public class Flardians {
-    private static final List<ItemType> ITEM_TYPES = ImmutableList.of(ItemTypes.ACACIA_DOOR, ItemTypes.LEAVES2,
-            ItemTypes.BOOKSHELF, ItemTypes.COAL, ItemTypes.COBBLESTONE, ItemTypes.ANVIL, ItemTypes.IRON_ORE,
-            ItemTypes.APPLE, ItemTypes.WHEAT_SEEDS, ItemTypes.DIRT);
-
-    // This field refers to the display name of the villager that will sell our stuff
     private static final Text FLARDARIAN = Text.of(TextColors.DARK_AQUA, TextStyles.BOLD, TextStyles.ITALIC, "Flardarian");
 
-    // This field refers to the display name of our ItemStack
-    private static final List<Text> DISPLAY_NAMES = ImmutableList.of(
-            Text.of(TextColors.GREEN, TextStyles.ITALIC, "Book One"),
-            Text.of(TextColors.GREEN, TextStyles.ITALIC, "Book Two"));
+    @Inject
+    private PluginContainer container;
 
-    // Here we define the Lore we will be using for out items.
-    private static final Text LORE_FIRST = Text.of(TextColors.BLUE, TextStyles.ITALIC, "This is indeed a glorious day!");
-    private static final Text LORE_SECOND = Text.of(TextColors.BLUE, TextStyles.ITALIC, "Shining sun makes the clouds flee");
-    private static final Text LORE_THIRD = Text.of(TextColors.BLUE, TextStyles.ITALIC, "With State of ",
-            TextColors.YELLOW, "Sponge", TextColors.BLUE, " again today");
-    private static final Text LORE_FOURTH = Text.of(TextColors.BLUE, TextStyles.ITALIC, "Granting delights for you and me");
-    private static final Text LORE_FIFTH = Text.of(TextColors.BLUE, TextStyles.ITALIC, "For ",
-            TextColors.YELLOW, "Sponge", TextColors.BLUE, " is in a State of play");
-    private static final Text LORE_SIXTH = Text.of(TextColors.BLUE, TextStyles.ITALIC, "Today, be happy as can be!");
-    private static final ImmutableList<Text> LORE = ImmutableList.of(LORE_FIRST, LORE_SECOND, LORE_THIRD, LORE_FOURTH,
-            LORE_FIFTH, LORE_SIXTH);
+    TradeItems tradeItems;
 
-    private static final Random RANDOM = new Random();
+    @Listener
+    public void onStarting(GameStartingServerEvent event) {
+        tradeItems = new TradeItems();
+
+        CommandSpec merchantCommand = CommandSpec.builder()
+                .description(Text.of("program the next villager that spawns"))
+                .arguments(
+                        GenericArguments.string(Text.of("buy")),
+                        GenericArguments.string(Text.of("sell"))
+                )
+                .executor(new MerchantCommand(tradeItems))
+                .build();
+        Sponge.getCommandManager().register(container, merchantCommand, "merchant");
+    }
 
     @Listener
     public void onSpawn(SpawnEntityEvent event) {
-        // Here we create the villager that will sell out stuff.
-        // Sponge takes inspiration from Entity systems, where any object can have any data.
-        // The data we're setting here is then represented as the key.
-        // Once we have our data we then offer the data to the entity using the specified key.
+        if (this.tradeItems == null || this.tradeItems.buy == null) {
+            return;
+        }
         for (Entity entity : event.getEntities()) {
             if (!entity.getType().equals(EntityTypes.VILLAGER)) {
                 continue;
@@ -66,9 +68,6 @@ public class Flardians {
             entity.offer(Keys.DISPLAY_NAME, FLARDARIAN);
             entity.offer(Keys.CUSTOM_NAME_VISIBLE, true);
             entity.offer(Keys.INVULNERABILITY_TICKS, 1);
-            // Up until now we have offered the entity single pieces of data tied to keys.
-            // Here we instead hand it a DataManipulator, which is like
-            // a bundle of different data with the keys already associated with different fields.
             entity.offer(generateTradeOffer());
         }
     }
@@ -76,30 +75,69 @@ public class Flardians {
     private TradeOfferData generateTradeOffer() {
         final TradeOfferData tradeOfferData = Sponge.getDataManager().getManipulatorBuilder(TradeOfferData.class).get().create();
         ListValue<TradeOffer> tradeOffers = tradeOfferData.tradeOffers();
-        for (int i = 0; i < 2; i++) {
-            final DisplayNameData itemName = Sponge.getDataManager().getManipulatorBuilder(DisplayNameData.class).get().create();
-            itemName.set(Keys.DISPLAY_NAME, DISPLAY_NAMES.get(i));
 
-            final LoreData loreData = Sponge.getDataManager().getManipulatorBuilder(LoreData.class).get().create();
-            final ListValue<Text> lore = loreData.lore();
-            lore.add(LORE.get(i));
-            loreData.set(lore);
+        tradeOffers.add(TradeOffer.builder()
+                .firstBuyingItem(ItemStack.of(this.tradeItems.buy))
+                .maxUses(10000)
+                .sellingItem(ItemStack.of(this.tradeItems.sell))
+                .build());
 
-            final ItemStack selling = ItemStack.builder()
-                    .itemType(ITEM_TYPES.get(i+1))
-                    .itemData(itemName)
-                    .itemData(loreData)
-                    .quantity(1)
-                    .build();
-
-            tradeOffers.add(TradeOffer.builder()
-                    .firstBuyingItem(ItemStack.of(ITEM_TYPES.get(i)))
-                    .maxUses(10000)
-                    .sellingItem(selling)
-                    .build());
-        }
         tradeOfferData.set(tradeOffers);
         return tradeOfferData;
     }
 
+}
+
+class MerchantCommand implements CommandExecutor {
+    TradeItems tradeItems;
+    HashMap<String, ItemType> itemNameMap;
+
+    MerchantCommand(TradeItems tradeItems) {
+        this.tradeItems = tradeItems;
+
+        this.itemNameMap = new HashMap<>();
+        for (Field field : ItemTypes.class.getDeclaredFields()) {
+            if (java.lang.reflect.Modifier.isStatic(field.getModifiers()) && field.getType() == ItemType.class) {
+                ItemType itemType;
+                try {
+                    itemType = (ItemType) field.get(null);
+                } catch (IllegalAccessException e) {
+                    e.printStackTrace();
+                    continue;
+                }
+                if (itemType.getName().startsWith("minecraft:")) {
+                    this.itemNameMap.put(itemType.getName().substring(10), itemType);
+                } else {
+                    System.out.println("ignoring " + itemType.getName());
+                }
+            }
+        }
+    }
+
+    @Override
+    public CommandResult execute(CommandSource src, CommandContext args) throws CommandException {
+        String buy = args.<String>getOne("buy").get();
+        String sell = args.<String>getOne("sell").get();
+        ItemType buyType = this.itemNameMap.get(buy);
+        ItemType sellType = this.itemNameMap.get(sell);
+        if (buyType == null || sellType == null) {
+            if (buyType == null) {
+                src.sendMessage(Text.of("couldn't find ", TextColors.RED, buy));
+            }
+            if (sellType == null) {
+                src.sendMessage(Text.of("couldn't find ", TextColors.RED, sell));
+            }
+            return CommandResult.empty();
+        }
+        this.tradeItems.buy = buyType;
+        this.tradeItems.sell = sellType;
+        src.sendMessage(Text.of("buying ", TextColors.LIGHT_PURPLE, this.tradeItems.buy, TextColors.RESET,
+                ", selling ", TextColors.GREEN, this.tradeItems.sell));
+        return CommandResult.success();
+    }
+}
+
+class TradeItems {
+    public ItemType buy;
+    public ItemType sell;
 }
